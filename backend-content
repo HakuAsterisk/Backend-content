@@ -1,0 +1,377 @@
+<?php
+/**
+ * Plugin Name: form-handler
+ * Description: Handles form submission for this website
+ * Author: Haku
+ **/
+add_action('wp_ajax_my_action', 'my_prefix_update_data');
+add_action( 'wp_ajax_save_pdf', 'save_pdf_to_file');
+add_action( 'wp_ajax_send_email', 'send_pdf_to_client');
+add_action( 'wp_ajax_remove_pdf', 'delete_pdf_from_file');
+add_action( 'wp_ajax_input_new', 'add_new_data');
+add_action( 'wp_ajax_poista_id', 'delete_data');
+add_action( 'wp_ajax_old_logs', 'delete_logs');
+
+function my_prefix_update_data() {
+
+  $rform_data = wp_unslash( $_POST['data'] );
+
+  // Sanitize and validate form data
+  $form_data = array(
+    'item_id' => absint( $rform_data['item_id'] ),
+    'enimi' => sanitize_text_field( $rform_data['enimi'] ),
+    'sknimi' => sanitize_text_field( $rform_data['sknimi'] ),
+    'puhnro' => sanitize_text_field( $rform_data['puhnro'] ),
+    'email' => sanitize_email( $rform_data['email'] ),
+    'osoite' => sanitize_text_field( $rform_data['osoite'] ),
+    'postinro' => absint( $rform_data['postinro'] ),
+    'kaupunki' => sanitize_text_field( $rform_data['kaupunki'] ),
+    'lasku' => absint( $rform_data['lasku'] ),
+    'note' => sanitize_textarea_field( $rform_data['note'] ),
+  );
+
+  	$servername = "localhost";
+	$username = "thyyjkxkmz_gbpg1";
+	$password = "O,*QtYyN4R]o[uq7DA)61[)3";
+	$dbname = "thyyjkxkmz_gbpg1";
+
+	// Connection
+	$db = new mysqli($servername, $username, $password, $dbname);
+	$db->set_charset("utf8");
+	
+	if ($db->connect_error) {
+    die("Connection failed: " . $db->connect_error);
+  	}
+	
+  	$table_name = 'frm_items';
+
+  	// Update query
+  	$query = "UPDATE frm_items
+      SET
+      enimi = ?,
+      sknimi = ?,
+      puhnro = ?,
+      email = ?,
+      osoite = ?,
+      postinro = ?,
+      kaupunki = ?,
+      lasku = ?,
+      note = ?
+    WHERE item_id = ?
+  ";
+
+	// Prepare and bind the information
+  $stmt = $db->prepare($query);
+  $stmt->bind_param("sssssisisi", $form_data['enimi'], $form_data['sknimi'], $form_data['puhnro'], $form_data['email'], $form_data['osoite'], $form_data['postinro'], $form_data['kaupunki'], $form_data['lasku'], $form_data['note'], $form_data['item_id']);
+	
+  $results = $stmt->execute();
+
+  if (false === $results) {
+    wp_send_json_error('Error updating data.');
+  } else {
+    wp_send_json_success('Data updated successfully.');
+  }
+	
+  // Closing statement and connection
+  $stmt->close();
+  $db->close();
+}
+
+function add_new_data() {
+
+  $rform_data = wp_unslash( $_POST['data'] );
+
+  // Sanitize and validate form data
+  $form_data = array(
+    'enimi' => sanitize_text_field( $rform_data['enimi'] ),
+    'sknimi' => sanitize_text_field( $rform_data['sknimi'] ),
+    'toimi' => absint( $rform_data['action'] ),
+    'kuka' => absint( $rform_data['userId'] ),
+  );
+
+  // Connection
+  	$servername = "localhost";
+	$username = "thyyjkxkmz_gbpg1";
+	$password = "O,*QtYyN4R]o[uq7DA)61[)3";
+	$dbname = "thyyjkxkmz_gbpg1";
+  $db = new mysqli($servername, $username, $password, $dbname);
+  $db->set_charset("utf8");
+	
+  if ($db->connect_error) {
+    wp_send_json_error('Error connecting to database: ' . $db->connect_error);
+  }
+
+  // Set the table name
+  $table_name = 'frm_logs';
+
+  // Prepare the insert query
+  $query = "INSERT INTO $table_name (enimi, sknimi, toimi, kuka) VALUES (?, ?, ?, ?)";
+
+  // Prepare and bind the query parameters
+  $stmt = $db->prepare($query);
+  $stmt->bind_param("ssii", $form_data['enimi'], $form_data['sknimi'], $form_data['toimi'], $form_data['kuka']);
+
+  // Execute the query
+  $results = $stmt->execute();
+
+  if (false === $results) {
+    wp_send_json_error('Error inserting log data: ' . $stmt->error);
+  } else {
+    wp_send_json_success('Log data inserted successfully.');
+  }
+
+  // Close the statement and the database connection
+  $stmt->close();
+  $db->close();
+}
+
+
+function delete_data() {
+
+    $rform_data = wp_unslash( $_POST['data'] );
+
+    // Sanitize and validate form data
+    $form_data = array(
+        'enimi' => sanitize_text_field( $rform_data['enimi'] ),
+        'sknimi' => sanitize_text_field( $rform_data['sknimi'] ),
+        'toimi' => absint( $rform_data['action'] ),
+        'kuka' => absint( $rform_data['userId'] ),
+        'id' => absint( $rform_data['id'] )
+    );
+
+    // Extract the sanitized data
+    $id = $form_data['id'];
+    $enimi = $form_data['enimi'];
+    $sknimi = $form_data['sknimi'];
+    $action = $form_data['toimi'];
+    $userId = $form_data['kuka'];
+
+    // Set the database connection parameters
+    $servername = "localhost";
+	  $username = "thyyjkxkmz_gbpg1";
+	  $password = "O,*QtYyN4R]o[uq7DA)61[)3";
+	  $dbname = "thyyjkxkmz_gbpg1";
+
+    $db = new mysqli($servername, $username, $password, $dbname);
+    $db->set_charset("utf8");
+
+    if ($db->connect_error) {
+        wp_send_json_error('Error connecting to database: ' . $db->connect_error);
+    }
+
+    // Set the table name
+    $table_name1 = 'lttb_frm_items';
+    $table_name2 = 'frm_logs';
+
+    // Delete
+    $sql = "DELETE FROM $table_name1 WHERE id = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    // Insert into logs table
+    $sql = "INSERT INTO $table_name2 (enimi, sknimi, toimi, kuka) VALUES (?, ?, ?, ?)";
+    $stmt = $db->prepare($sql); // changed $sb to $db here
+    $stmt->bind_param("ssis", $enimi, $sknimi, $action, $userId); // changed variables to match the sanitized data
+    $stmt->execute();
+
+    if ($stmt->affected_rows > 0) {
+        echo 'success';
+    } else {
+        echo 'Error: ' . $db->error;
+    }
+
+    $stmt->close();
+    $db->close();
+}
+
+
+function save_pdf_to_file() {
+    // Checking if PDF file was uploaded
+    if (!isset($_FILES['pdf'])) {
+        wp_send_json_error('PDF file not found');
+        return;
+    }
+
+    // Checking if the item_id parameter was sent
+    if (!isset($_POST['item_id'])) {
+        wp_send_json_error('Item ID not found');
+        return;
+    }
+
+    // Getting the item_id parameter
+    $item_id = sanitize_text_field($_POST['item_id']);
+
+    // Generating the file name for the PDF
+    $file_name = 'lasku_' . $item_id . '.pdf';
+
+    // Generating the file path for the PDF
+    $file_path = ABSPATH . 'pdfs/' . $file_name;
+
+    // Move the uploaded PDF file to the desired file location
+    if (!move_uploaded_file($_FILES['pdf']['tmp_name'], $file_path)) {
+        wp_send_json_error('Failed to save PDF');
+        return;
+    }
+
+    // Send a success response
+    wp_send_json_success('PDF saved successfully');
+}
+
+function send_pdf_to_client() {
+    // Sanitize and validate form data
+    if (isset($_POST['action']) && $_POST['action'] == 'send_email') {
+        $item_id = $_POST['item_id'];
+        $email = $_POST['email'];
+		    $enimi = $_POST['enimi'];
+        $sknimi = $_POST['sknimi'];
+		    $toimi = $_POST['actionId'];
+		    $kuka = $_POST['userId'];
+
+        // Generating the file name for the PDF
+        $file_name = 'lasku_' . $item_id . '.pdf';
+
+        // Generating the file path for the PDF
+        $file_path = ABSPATH . 'pdfs/' . $file_name;
+
+        // Checking if the PDF file exists
+        if (file_exists($file_path)) {
+            // Prepare the email content
+            $to = $email;
+            $subject = 'Kuivurintuvan jäsenmaksu';
+            $message =  'Hei Liitteenä on laskusi Kuivurintupa ry:ltä.';
+            $headers = 'From: Kuivurintupa Ry <kuivurintupa@kuivurintupa.fi>';
+
+            // Attaching the PDF to the email
+            $attachments = array($file_path);
+
+            // Sending the email
+            wp_mail($to, $subject, $message, $headers, $attachments);
+        } else {
+            // Handle the case where the PDF file doesn't exist
+            wp_send_json_error('PDF file not found');
+        }
+		
+		 // Set the database connection parameters
+		$servername = "localhost";
+		$username = "thyyjkxkmz_gbpg1";
+		$password = "O,*QtYyN4R]o[uq7DA)61[)3";
+		$dbname = "thyyjkxkmz_gbpg1";
+
+		// Create a new mysqli object
+		$db = new mysqli($servername, $username, $password, $dbname);
+		$db->set_charset("utf8");
+
+		// Check for connection errors
+		if ($db->connect_error) {
+			wp_send_json_error('Error connecting to database: ' . $db->connect_error);
+		}
+
+		// Set the table name
+		$table_name = 'frm_logs';
+
+		// Insert into logs table
+		$sql = "INSERT INTO $table_name (enimi, sknimi, toimi, kuka) VALUES (?, ?, ?, ?)";
+		$stmt = $db->prepare($sql); // changed $sb to $db here
+		$stmt->bind_param("ssis", $enimi, $sknimi, $toimi, $kuka); // changed variables to match the sanitized data
+		$stmt->execute();
+		
+		if ($stmt->affected_rows > 0) {
+        echo 'logs success';
+		} else {
+			echo 'logs error: ' . $db->error;
+		}
+		
+		  $stmt->close();
+    	$db->close();
+    }
+}
+
+function delete_pdf_from_file() {
+    // Check if the item_id parameter was sent
+    if (!isset($_POST['item_id'])) {
+        wp_send_json_error('Item ID not found');
+        return;
+    }
+
+    // Get the item_id parameter
+    $item_id = sanitize_text_field($_POST['item_id']);
+
+    // Generate the file name for the PDF
+    $file_name = 'lasku_' . $item_id . '.pdf';
+
+    // Generate the file path for the PDF
+    $file_path = ABSPATH . 'pdfs/' . $file_name;
+
+    // Check if the PDF file exists
+    if (!file_exists($file_path)) {
+        wp_send_json_error('PDF file not found');
+        return;
+    }
+	
+    // Delete the PDF file from the file path
+    if (!unlink($file_path)) {
+        wp_send_json_error('Failed to delete PDF');
+        return;
+    }
+
+    // Send a success response
+    wp_send_json_success('PDF deleted successfully');
+}
+
+function delete_logs() {
+    // Set the database connection parameters
+    $servername = "localhost";
+	  $username = "thyyjkxkmz_gbpg1";
+	  $password = "O,*QtYyN4R]o[uq7DA)61[)3";
+	  $dbname = "thyyjkxkmz_gbpg1";
+
+    // Create a new mysqli object
+    $db = new mysqli($servername, $username, $password, $dbname);
+    $db->set_charset("utf8");
+
+    // Check for connection errors
+    if ($db->connect_error) {
+        wp_send_json_error('Error connecting to database: ' . $db->connect_error);
+    }
+
+    // Set the table name
+    $table_name = 'frm_logs';
+
+    // Check if the request method is POST
+    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+        // Check if the data is set and not empty
+        if (isset($_POST['data']) && !empty($_POST['data'])) {
+            $logIds = $_POST['data']; // Get the log IDs from the request
+
+            // Loop through the log IDs and perform the deletion
+            foreach ($logIds as $logIdKey => $logIdValue) {
+                $logId = intval($logIdValue); // Get the log ID and convert it to an integer
+
+                // Skip the iteration if the log ID is invalid
+                if ($logId <= 0) {
+                    continue;
+                }
+
+                // Perform the deletion
+                $sql = "DELETE FROM $table_name WHERE log_id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->bind_param("i", $logId);
+                $stmt->execute();
+            }
+
+            // Send a response back to the AJAX request
+            wp_send_json_success('Old logs deleted successfully.');
+        } else {
+            // Send an error response if the data is not set or empty
+            wp_send_json_error('Data not found.');
+        }
+    } else {
+        // Send an error response if the request method is not POST
+        wp_send_json_error('Invalid request method.');
+    }
+
+    // Close the database connection
+    $db->close();
+}
+?>
